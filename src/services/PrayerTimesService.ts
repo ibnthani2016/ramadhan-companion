@@ -202,8 +202,13 @@ export const getNextPrayer = (
     }
   }
 
-  // If all prayers have passed, return fajr for next day
-  return null;
+  // If all prayers have passed, return Fajr for next day
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(4, 30, 0, 0); // Approximate Fajr time
+  
+  const remaining = tomorrow.getTime() - now.getTime();
+  return { name: 'fajr', time: tomorrow, remaining };
 };
 
 // Format time for display

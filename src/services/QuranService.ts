@@ -171,10 +171,38 @@ export const getChapterVerses = async (chapterId: number): Promise<QuranVerse[]>
     return SAMPLE_VERSES[chapterId];
   }
 
-  // In a real app, this would fetch from an API like:
-  // https://api.alquran.cloud/v1/surah/{chapterId}
-  // For now, return empty array for chapters we don't have
-  return [];
+  // Generate placeholder verses for chapters we don't have data for
+  const chapter = QURAN_CHAPTERS.find(c => c.id === chapterId);
+  if (!chapter) return [];
+  
+  // Generate sample verses based on chapter length (max 10 for performance)
+  const verseCount = Math.min(chapter.numberOfAyahs, 10);
+  const verses: QuranVerse[] = [];
+  
+  for (let i = 1; i <= verseCount; i++) {
+    verses.push({
+      id: chapterId * 1000 + i,
+      chapterId,
+      verseNumber: i,
+      textArabic: `أَيَةٌ {${i}}`, // Placeholder Arabic text
+      textTranslation: `This is verse ${i} of ${chapter.englishName}. Full verse content would be loaded from the Quran API.`,
+      audioUrl: `https://cdn.islamic.network/quran/audio/128/ar.alafasy/${chapterId}.mp3`
+    });
+  }
+  
+  // If chapter has more than 10 verses, add a note
+  if (chapter.numberOfAyahs > 10) {
+    verses.push({
+      id: chapterId * 1000 + 999,
+      chapterId,
+      verseNumber: verseCount + 1,
+      textArabic: '...',
+      textTranslation: `[${chapter.numberOfAyahs - 10} more verses - load from full API]`,
+      audioUrl: undefined
+    });
+  }
+  
+  return verses;
 };
 
 // Get audio URL for a verse

@@ -21,13 +21,40 @@ const HomeScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [countdown, setCountdown] = useState('');
 
-  // Calculate current Ramadan day
+  // Calculate current Ramadan day - dynamic based on current year
   useEffect(() => {
-    const ramadanStart = new Date('2026-02-28');
+    const currentYear = new Date().getFullYear();
+    
+    // Ramadan dates (approximate - actual dates depend on moon sighting)
+    // Ramadan shifts ~11 days earlier each year
+    const ramadanStartDates: Record<number, string> = {
+      2024: '2024-03-10', // Ramadan 2024
+      2025: '2025-02-28', // Ramadan 2025
+      2026: '2026-02-17', // Ramadan 2026
+      2027: '2027-02-06', // Ramadan 2027
+      2028: '2028-01-26', // Ramadan 2028
+    };
+    
+    const ramadanStartStr = ramadanStartDates[currentYear] || '2026-02-17';
+    const ramadanStart = new Date(ramadanStartStr);
     const today = new Date();
-    const diffTime = today.getTime() - ramadanStart.getTime();
+    
+    // Reset time to midnight for accurate day calculation
+    ramadanStart.setHours(0, 0, 0, 0);
+    const todayCopy = new Date(today);
+    todayCopy.setHours(0, 0, 0, 0);
+    
+    const diffTime = todayCopy.getTime() - ramadanStart.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    setRamadanDay(Math.max(1, Math.min(30, diffDays)));
+    
+    // Set Ramadan day (1-30) or special values
+    if (diffDays < 1) {
+      setRamadanDay(-diffDays); // Show countdown
+    } else if (diffDays > 30) {
+      setRamadanDay(0); // Ramadan ended
+    } else {
+      setRamadanDay(diffDays);
+    }
   }, []);
 
   // Request location on mount
