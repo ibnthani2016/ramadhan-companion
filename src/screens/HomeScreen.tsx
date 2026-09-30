@@ -1,6 +1,6 @@
 // Home Screen - Main dashboard for Ramadan Companion
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,11 +13,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
 import { formatTime, formatRemaining, getNextPrayer } from '../services/PrayerTimesService';
+import { colors, spacing, typography, shadows, borderRadius } from '../theme';
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { prayerTimes, currentLocation, requestLocationPermission, refreshPrayerTimes } = useApp();
   const [ramadanDay, setRamadanDay] = useState(1);
+  const [isRamadanActive, setIsRamadanActive] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [countdown, setCountdown] = useState('');
 
@@ -205,41 +207,41 @@ const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
   },
   header: {
-    backgroundColor: '#1E88E5',
-    padding: 20,
+    backgroundColor: colors.primary,
+    padding: spacing.lg,
     paddingTop: 50,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    borderBottomLeftRadius: borderRadius.xl,
+    borderBottomRightRadius: borderRadius.xl,
+    ...shadows.md,
   },
   headerContent: {
     flex: 1,
   },
   greeting: {
-    fontSize: 16,
-    color: '#fff',
+    ...typography.body,
+    color: colors.textOnPrimary,
     opacity: 0.9,
   },
   ramadanTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 5,
+    ...typography.h2,
+    color: colors.textOnPrimary,
+    marginTop: spacing.xs,
   },
   dayBadge: {
     backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
     alignSelf: 'flex-start',
-    marginTop: 15,
+    marginTop: spacing.md,
   },
   dayText: {
-    color: '#fff',
+    color: colors.textOnPrimary,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -250,30 +252,32 @@ const styles = StyleSheet.create({
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 15,
-    backgroundColor: '#fff',
-    marginHorizontal: 15,
-    marginTop: 15,
-    borderRadius: 10,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+    borderRadius: borderRadius.lg,
+    ...shadows.sm,
   },
   locationText: {
-    marginLeft: 8,
-    color: '#666',
+    marginLeft: spacing.sm,
+    color: colors.textSecondary,
     fontSize: 14,
   },
   setLocationText: {
-    marginLeft: 10,
-    color: '#1E88E5',
+    marginLeft: spacing.md,
+    color: colors.primary,
     fontWeight: '600',
   },
   nextPrayerCard: {
-    backgroundColor: '#1E88E5',
-    margin: 15,
-    borderRadius: 15,
-    padding: 20,
+    backgroundColor: colors.primary,
+    margin: spacing.md,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    ...shadows.md,
   },
   nextPrayerContent: {
     flex: 1,
@@ -283,15 +287,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   nextPrayerName: {
-    color: '#fff',
+    color: colors.textOnPrimary,
     fontSize: 28,
     fontWeight: 'bold',
-    marginTop: 5,
+    marginTop: spacing.xs,
   },
   nextPrayerTime: {
-    color: '#FFD700',
+    color: colors.secondary,
     fontSize: 18,
-    marginTop: 5,
+    marginTop: spacing.xs,
   },
   countdownContainer: {
     alignItems: 'flex-end',
@@ -301,31 +305,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   countdownTime: {
-    color: '#fff',
+    color: colors.textOnPrimary,
     fontSize: 20,
     fontWeight: 'bold',
   },
   prayerTimesContainer: {
-    margin: 15,
+    margin: spacing.md,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
+    ...typography.h3,
+    color: colors.text,
+    marginBottom: spacing.sm,
   },
   prayerList: {
-    backgroundColor: '#fff',
-    borderRadius: 15,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
     overflow: 'hidden',
+    ...shadows.sm,
   },
   prayerItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 15,
+    padding: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: colors.divider,
   },
   nextPrayerItem: {
     backgroundColor: '#E3F2FD',
@@ -335,17 +339,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   prayerName: {
-    marginLeft: 12,
+    marginLeft: spacing.md,
     fontSize: 16,
-    color: '#333',
+    color: colors.text,
   },
   prayerTimeText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E88E5',
+    color: colors.primary,
   },
   quickActions: {
-    margin: 15,
+    margin: spacing.md,
   },
   actionGrid: {
     flexDirection: 'row',
@@ -354,11 +358,12 @@ const styles = StyleSheet.create({
   },
   actionItem: {
     width: '48%',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: spacing.sm,
+    ...shadows.sm,
   },
   actionIcon: {
     width: 50,
@@ -366,11 +371,11 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   actionText: {
     fontSize: 14,
-    color: '#333',
+    color: colors.text,
     fontWeight: '500',
   },
 });

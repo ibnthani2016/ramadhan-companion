@@ -1,6 +1,6 @@
 // Quran Screen - List of chapters (Surahs)
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,8 @@ import { useNavigation } from '@react-navigation/native';
 import { getAllChapters, JUZ_INFO } from '../services/QuranService';
 import { QuranChapter } from '../types';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { colors, spacing, typography, shadows, borderRadius } from '../theme';
+import { OptimizedList } from '../components';
 
 const QuranScreen: React.FC = () => {
   const navigation = useNavigation<any>();
