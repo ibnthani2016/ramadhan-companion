@@ -5,9 +5,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 
-// Screens - we'll create these next
+// Screens
 import HomeScreen from '../screens/HomeScreen';
 import PrayerTimesScreen from '../screens/PrayerTimesScreen';
 import QuranScreen from '../screens/QuranScreen';
@@ -18,6 +18,7 @@ import MediaPlayerScreen from '../screens/MediaPlayerScreen';
 import AppLockScreen from '../screens/AppLockScreen';
 import MemeGeneratorScreen from '../screens/MemeGeneratorScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import TasbihScreen from '../screens/TasbihScreen';
 
 // Types
 export type RootStackParamList = {
@@ -123,6 +124,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-nati
 
 const MoreMenuScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const menuItems = [
+    { icon: 'hardware-chip', title: 'Tasbih', screen: 'Tasbih', color: '#4CAF50' },
     { icon: 'lock-closed', title: 'App Lock', screen: 'AppLock', color: '#E53935' },
     { icon: 'images', title: 'Meme Generator', screen: 'MemeGenerator', color: '#8E24AA' },
     { icon: 'settings', title: 'Settings', screen: 'Settings', color: '#1E88E5' },
@@ -223,6 +225,10 @@ const AppNavigator: React.FC = () => {
           <Stack.Screen 
             name="AppLock" 
             component={AppLockScreen} 
+          />
+          <Stack.Screen 
+            name="Tasbih" 
+            component={TasbihScreen} 
           />
           <Stack.Screen 
             name="MemeGenerator" 
