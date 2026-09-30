@@ -29,6 +29,7 @@ export type RootStackParamList = {
   Settings: undefined;
   MemeGenerator: undefined;
   AppLock: undefined;
+  Tasbih: undefined;
   MoreMenu: undefined;
 };
 
@@ -120,8 +121,6 @@ const MainTabs: React.FC = () => {
 };
 
 // More Menu Screen
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-
 const MoreMenuScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const menuItems = [
     { icon: 'hardware-chip', title: 'Tasbih', screen: 'Tasbih', color: '#4CAF50' },

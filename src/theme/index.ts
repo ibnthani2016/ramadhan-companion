@@ -6,6 +6,7 @@ export { typography, default as typographyDefault } from './typography';
 // Common component styles
 import { colors } from './colors';
 import { spacing, borderRadius, shadows } from './spacing';
+import { typography } from './typography';
 
 export const commonStyles = {
   // Container styles

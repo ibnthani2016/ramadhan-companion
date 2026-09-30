@@ -10,15 +10,21 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useApp } from '../context/AppContext';
 import { formatTime, getCurrentPrayer, getNextPrayer } from '../services/PrayerTimesService';
 import { CalculationMethod } from '../types';
+import { colors, spacing, typography, shadows, borderRadius } from '../theme';
+
+const ADHAN_URL = 'https://www.islamcan.com/audio/adhan/azan1.mp3';
 
 const PrayerTimesScreen: React.FC = () => {
   const { prayerTimes, settings, updateSettings, requestLocationPermission, currentLocation } = useApp();
-  const [sound, setSound] = useState<any>(null);
-  const [isPlayingAdhan, setIsPlayingAdhan] = useState(false);
+
+  // Modern expo-audio hook — manages the native player lifecycle automatically
+  const player = useAudioPlayer(ADHAN_URL);
+  const status = useAudioPlayerStatus(player);
+  const isPlayingAdhan = status.playing;
 
   const calculationMethods: { value: CalculationMethod; label: string }[] = [
     { value: 'MWL', label: 'Muslim World League' },
@@ -30,41 +36,19 @@ const PrayerTimesScreen: React.FC = () => {
     { value: 'Jafari', label: 'Shia Ithna-Ashari, Leva Institute, Qum' },
   ];
 
-  const playAdhan = async () => {
+  const playAdhan = () => {
     try {
-      if (sound) {
-        await sound.unloadAsync();
-      }
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: 'https://www.islamcan.com/audio/adhan/azan1.mp3' },
-        { shouldPlay: true }
-      );
-      setSound(newSound);
-      setIsPlayingAdhan(true);
-      newSound.setOnPlaybackStatusUpdate((status: any) => {
-        if (status.isLoaded && status.didJustFinish) {
-          setIsPlayingAdhan(false);
-        }
-      });
-    } catch (error) {
+      player.seekTo(0);
+      player.play();
+    } catch {
       Alert.alert('Error', 'Could not play Adhan. Please check your internet connection.');
     }
   };
 
-  const stopAdhan = async () => {
-    if (sound) {
-      await sound.stopAsync();
-      setIsPlayingAdhan(false);
-    }
+  const stopAdhan = () => {
+    player.pause();
+    player.seekTo(0);
   };
-
-  useEffect(() => {
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
-  }, [sound]);
 
   const changeCalculationMethod = () => {
     Alert.alert(
@@ -175,40 +159,40 @@ const PrayerTimesScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { backgroundColor: '#1E88E5', padding: 20, paddingTop: 50, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
-  headerTitle: { fontSize: 28, fontWeight: 'bold', color: '#fff' },
-  headerSubtitle: { fontSize: 16, color: 'rgba(255,255,255,0.8)', marginTop: 5 },
-  currentTimeCard: { backgroundColor: '#fff', margin: 15, borderRadius: 15, padding: 20, alignItems: 'center' },
-  currentTimeLabel: { fontSize: 14, color: '#666' },
-  currentTimeText: { fontSize: 48, fontWeight: 'bold', color: '#1E88E5', marginTop: 5 },
-  currentPrayerText: { fontSize: 16, color: '#4CAF50', marginTop: 10, fontWeight: '600' },
-  adhanCard: { backgroundColor: '#fff', marginHorizontal: 15, borderRadius: 15, padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: colors.background },
+  header: { backgroundColor: colors.primary, padding: spacing.lg, paddingTop: 50, borderBottomLeftRadius: borderRadius.xl, borderBottomRightRadius: borderRadius.xl, ...shadows.md },
+  headerTitle: { ...typography.h1, color: colors.textOnPrimary },
+  headerSubtitle: { ...typography.body, color: 'rgba(255,255,255,0.8)', marginTop: spacing.xs },
+  currentTimeCard: { backgroundColor: colors.surface, margin: spacing.md, borderRadius: borderRadius.xl, padding: spacing.lg, alignItems: 'center', ...shadows.md },
+  currentTimeLabel: { ...typography.caption, color: colors.textSecondary },
+  currentTimeText: { fontSize: 48, fontWeight: 'bold', color: colors.primary, marginTop: spacing.xs },
+  currentPrayerText: { ...typography.body, color: colors.success, marginTop: spacing.sm, fontWeight: '600' },
+  adhanCard: { backgroundColor: colors.surface, marginHorizontal: spacing.md, borderRadius: borderRadius.xl, padding: spacing.lg, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', ...shadows.md },
   adhanInfo: { flexDirection: 'row', alignItems: 'center' },
-  adhanText: { marginLeft: 15 },
-  adhanTitle: { fontSize: 20, fontWeight: 'bold', color: '#333' },
-  adhanSubtitle: { fontSize: 14, color: '#666' },
-  adhanButton: { backgroundColor: '#1E88E5', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 25 },
-  adhanButtonActive: { backgroundColor: '#E53935' },
-  adhanButtonText: { color: '#fff', fontWeight: '600', marginLeft: 8 },
-  prayerTimesList: { margin: 15, backgroundColor: '#fff', borderRadius: 15, overflow: 'hidden' },
-  prayerItem: { flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  adhanText: { marginLeft: spacing.md },
+  adhanTitle: { ...typography.h3, color: colors.text },
+  adhanSubtitle: { ...typography.caption, color: colors.textSecondary },
+  adhanButton: { backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderRadius: borderRadius.full },
+  adhanButtonActive: { backgroundColor: colors.error },
+  adhanButtonText: { color: colors.textOnPrimary, fontWeight: '600', marginLeft: spacing.sm },
+  prayerTimesList: { margin: spacing.md, backgroundColor: colors.surface, borderRadius: borderRadius.xl, overflow: 'hidden', ...shadows.sm },
+  prayerItem: { flexDirection: 'row', alignItems: 'center', padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.divider },
   currentPrayerItem: { backgroundColor: '#E8F5E9' },
   nextPrayerItem: { backgroundColor: '#E3F2FD' },
   prayerIconContainer: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#E3F2FD', justifyContent: 'center', alignItems: 'center' },
-  prayerInfo: { flex: 1, marginLeft: 15 },
-  prayerName: { fontSize: 18, fontWeight: '600', color: '#333' },
-  prayerArabicName: { fontSize: 14, color: '#1E88E5', fontStyle: 'italic' },
+  prayerInfo: { flex: 1, marginLeft: spacing.md },
+  prayerName: { ...typography.h4, color: colors.text },
+  prayerArabicName: { ...typography.caption, color: colors.primary, fontStyle: 'italic' },
   prayerTimeContainer: { alignItems: 'flex-end' },
-  prayerTime: { fontSize: 20, fontWeight: 'bold', color: '#1E88E5' },
-  nextBadge: { backgroundColor: '#1E88E5', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10, marginTop: 5 },
-  nextBadgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
-  settingsSection: { margin: 15, backgroundColor: '#fff', borderRadius: 15, overflow: 'hidden' },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', padding: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  settingItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  prayerTime: { fontSize: 20, fontWeight: 'bold', color: colors.primary },
+  nextBadge: { backgroundColor: colors.primary, paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: borderRadius.sm, marginTop: spacing.xs },
+  nextBadgeText: { color: colors.textOnPrimary, fontSize: 10, fontWeight: 'bold' },
+  settingsSection: { margin: spacing.md, backgroundColor: colors.surface, borderRadius: borderRadius.xl, overflow: 'hidden', ...shadows.sm },
+  sectionTitle: { ...typography.h3, color: colors.text, padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  settingItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.divider },
   settingInfo: { flexDirection: 'row', alignItems: 'center' },
-  settingLabel: { marginLeft: 12, fontSize: 16, color: '#333' },
-  settingValue: { fontSize: 14, color: '#666', textAlign: 'right', maxWidth: '50%' },
+  settingLabel: { marginLeft: spacing.md, ...typography.body, color: colors.text },
+  settingValue: { ...typography.caption, color: colors.textSecondary, textAlign: 'right', maxWidth: '50%' },
 });
 
 export default PrayerTimesScreen;

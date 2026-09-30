@@ -1,6 +1,23 @@
-// Quran Service - Handles Quran data, chapters, verses, and audio
+// Quran Service - Real Quran text via AlQuran Cloud API (free, no key required)
+// Arabic: quran-uthmani edition | Translation: en.sahih (Saheeh International)
+// Audio: Islamic Network CDN (global ayah numbering)
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QuranChapter, QuranVerse } from '../types';
+
+const API_BASE = 'https://api.alquran.cloud/v1';
+const TRANSLATION_EDITION = 'en.sahih'; // Saheeh International
+const CACHE_PREFIX = '@ramadan_companion/quran/';
+
+// Compute global ayah number (1-6236) for the audio CDN
+export const getGlobalAyahNumber = (chapterId: number, verseNumber: number): number => {
+  let global = 0;
+  for (const chapter of QURAN_CHAPTERS) {
+    if (chapter.id >= chapterId) break;
+    global += chapter.numberOfAyahs;
+  }
+  return global + verseNumber;
+};
 
 // Complete list of Quran chapters (Surahs)
 export const QURAN_CHAPTERS: QuranChapter[] = [
@@ -164,71 +181,74 @@ export const getChapterById = (id: number): QuranChapter | undefined => {
   return QURAN_CHAPTERS.find(chapter => chapter.id === id);
 };
 
-// Get verses for a chapter (would normally fetch from API)
+// Get verses for a chapter from the real AlQuran Cloud API (cached for offline)
 export const getChapterVerses = async (chapterId: number): Promise<QuranVerse[]> => {
-  // Check if we have cached verses
-  if (SAMPLE_VERSES[chapterId]) {
-    return SAMPLE_VERSES[chapterId];
+  const cacheKey = `${CACHE_PREFIX}chapter_${chapterId}`;
+
+  // Try cache first (offline support)
+  try {
+    const cached = await AsyncStorage.getItem(cacheKey);
+    if (cached) return JSON.parse(cached) as QuranVerse[];
+  } catch {
+    // Cache read failed — continue to network
   }
 
-  // Generate placeholder verses for chapters we don't have data for
-  const chapter = QURAN_CHAPTERS.find(c => c.id === chapterId);
-  if (!chapter) return [];
-  
-  // Generate sample verses based on chapter length (max 10 for performance)
-  const verseCount = Math.min(chapter.numberOfAyahs, 10);
-  const verses: QuranVerse[] = [];
-  
-  for (let i = 1; i <= verseCount; i++) {
-    verses.push({
-      id: chapterId * 1000 + i,
-      chapterId,
-      verseNumber: i,
-      textArabic: `أَيَةٌ {${i}}`, // Placeholder Arabic text
-      textTranslation: `This is verse ${i} of ${chapter.englishName}. Full verse content would be loaded from the Quran API.`,
-      audioUrl: `https://cdn.islamic.network/quran/audio/128/ar.alafasy/${chapterId}.mp3`
-    });
+  // Fetch Arabic + English translation in parallel
+  const [arabicRes, translationRes] = await Promise.all([
+    fetch(`${API_BASE}/surah/${chapterId}`).then(r => r.json()),
+    fetch(`${API_BASE}/surah/${chapterId}/${TRANSLATION_EDITION}`).then(r => r.json()),
+  ]);
+
+  if (arabicRes.code !== 200 || translationRes.code !== 200) {
+    throw new Error('Failed to load verses from Quran API');
   }
-  
-  // If chapter has more than 10 verses, add a note
-  if (chapter.numberOfAyahs > 10) {
-    verses.push({
-      id: chapterId * 1000 + 999,
-      chapterId,
-      verseNumber: verseCount + 1,
-      textArabic: '...',
-      textTranslation: `[${chapter.numberOfAyahs - 10} more verses - load from full API]`,
-      audioUrl: undefined
-    });
+
+  const verses: QuranVerse[] = arabicRes.data.ayahs.map((ayah: any, index: number) => ({
+    id: chapterId * 1000 + ayah.numberInSurah,
+    chapterId,
+    verseNumber: ayah.numberInSurah,
+    textArabic: ayah.text,
+    textTranslation: translationRes.data.ayahs[index]?.text || '',
+    audioUrl: getVerseAudioUrl(chapterId, ayah.numberInSurah),
+  }));
+
+  // Cache for offline use
+  try {
+    await AsyncStorage.setItem(cacheKey, JSON.stringify(verses));
+  } catch {
+    // Cache write failed — non-fatal
   }
-  
+
   return verses;
 };
 
-// Get audio URL for a verse
-export const getVerseAudioUrl = (chapterId: number, verseNumber: number, reciter: string = 'ar.alafasy'): string => {
-  const verseKey = `${chapterId}:${verseNumber}`;
-  return `https://cdn.islamic.network/quran/audio/128/${reciter}/${verseKey}.mp3`;
+// Get audio URL for a verse (CDN uses GLOBAL ayah number, not chapter:verse)
+export const getVerseAudioUrl = (
+  chapterId: number,
+  verseNumber: number,
+  reciter: string = 'ar.alafasy'
+): string => {
+  const globalNumber = getGlobalAyahNumber(chapterId, verseNumber);
+  return `https://cdn.islamic.network/quran/audio/128/${reciter}/${globalNumber}.mp3`;
 };
 
-// Search verses by text
+// Search verses via the AlQuran Cloud search API
 export const searchVerses = async (query: string): Promise<QuranVerse[]> => {
-  const results: QuranVerse[] = [];
-  const lowerQuery = query.toLowerCase();
+  if (!query || query.trim().length < 3) return [];
 
-  // Search through all cached verses
-  for (const verses of Object.values(SAMPLE_VERSES)) {
-    for (const verse of verses) {
-      if (
-        verse.textArabic.toLowerCase().includes(lowerQuery) ||
-        verse.textTranslation.toLowerCase().includes(lowerQuery)
-      ) {
-        results.push(verse);
-      }
-    }
-  }
+  const res = await fetch(
+    `${API_BASE}/search/${encodeURIComponent(query.trim())}/all/en`
+  ).then(r => r.json());
 
-  return results;
+  if (res.code !== 200 || !res.data?.matches) return [];
+
+  return res.data.matches.slice(0, 50).map((match: any) => ({
+    id: match.surah.number * 1000 + match.numberInSurah,
+    chapterId: match.surah.number,
+    verseNumber: match.numberInSurah,
+    textArabic: '', // Search returns edition text only; fetch chapter for Arabic
+    textTranslation: match.text,
+  }));
 };
 
 // Juz (section) information - Quran is divided into 30 juz

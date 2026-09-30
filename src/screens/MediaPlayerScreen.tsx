@@ -1,11 +1,13 @@
-// Media Player Screen - Full video/audio playback
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator, Alert } from 'react-native';
+// Media Player Screen - Powered by expo-video (SDK 54 native player)
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { useEvent } from 'expo';
 import { SAMPLE_MEDIA } from '../services/MediaService';
 import { MediaItem } from '../types';
+import { colors, spacing, typography, shadows, borderRadius } from '../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -14,47 +16,71 @@ const MediaPlayerScreen: React.FC = () => {
   const route = useRoute<any>();
   const { mediaId } = route.params || {};
 
-  const videoRef = useRef<Video>(null);
   const [media, setMedia] = useState<MediaItem | null>(null);
-  const [status, setStatus] = useState<AVPlaybackStatus | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showControls, setShowControls] = useState(true);
 
   useEffect(() => {
-    // Find media by ID or use first sample
     const foundMedia = SAMPLE_MEDIA.find(m => m.id === mediaId) || SAMPLE_MEDIA[0];
     setMedia(foundMedia);
   }, [mediaId]);
 
-  const handlePlayPause = async () => {
-    if (!videoRef.current) return;
-    
-    if (status?.isLoaded) {
-      if (status.isPlaying) {
-        await videoRef.current.pauseAsync();
-      } else {
-        await videoRef.current.playAsync();
+  // Determine the playable source (prefer video, fall back to audio)
+  const source = media?.videoUrl || media?.audioUrl || '';
+
+  // Create the player — this hook manages the native player instance
+  const player = useVideoPlayer(source, (p) => {
+    p.timeUpdateEventInterval = 0.5; // Emit progress every 500ms
+  });
+
+  // Reactive playback state
+  const { isPlaying } = useEvent(player, 'playingChange', { isPlaying: player.playing });
+  const [position, setPosition] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  // Poll progress (simple, works on all platforms)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (player.duration > 0) {
+        setPosition(player.currentTime);
+        setDuration(player.duration);
       }
+    }, 500);
+    return () => clearInterval(interval);
+  }, [player]);
+
+  const handlePlayPause = () => {
+    if (isPlaying) {
+      player.pause();
+    } else {
+      player.play();
     }
   };
 
-  const handleSeek = async (direction: 'forward' | 'backward') => {
-    if (!videoRef.current || !status?.isLoaded) return;
-    
-    const newPosition = status.positionMillis + (direction === 'forward' ? 10000 : -10000);
-    await videoRef.current.setPositionAsync(Math.max(0, newPosition));
+  const handleSeek = (direction: 'forward' | 'backward') => {
+    const newPosition = position + (direction === 'forward' ? 10 : -10);
+    player.currentTime = Math.max(0, Math.min(newPosition, duration || 0));
   };
 
-  const formatTime = (millis: number): string => {
-    const totalSeconds = Math.floor(millis / 1000);
+  const handleShare = async () => {
+    if (!media) return;
+    try {
+      await Share.share({
+        message: `${media.title}\n${source}`,
+      });
+    } catch {
+      // User dismissed share sheet
+    }
+  };
+
+  const formatTime = (seconds: number): string => {
+    if (!isFinite(seconds)) return '0:00';
+    const totalSeconds = Math.floor(seconds);
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    
+    const secs = totalSeconds % 60;
     if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
   if (!media) {
@@ -73,6 +99,8 @@ const MediaPlayerScreen: React.FC = () => {
     );
   }
 
+  const progress = duration > 0 ? (position / duration) * 100 : 0;
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -85,99 +113,90 @@ const MediaPlayerScreen: React.FC = () => {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Video Player */}
-        <TouchableOpacity 
-          activeOpacity={0.9} 
-          onPress={() => setShowControls(!showControls)}
-          style={styles.videoContainer}
-        >
-          <Video
-            ref={videoRef}
+        {/* Video/Audio Player — expo-video with native controls */}
+        <View style={styles.videoContainer}>
+          <VideoView
             style={styles.video}
-            source={{ uri: media.videoUrl || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' }}
-            useNativeControls={true}
-            resizeMode={ResizeMode.CONTAIN}
-            isLooping
-            shouldPlay={false}
-            onLoadStart={() => setIsLoading(true)}
-            onLoad={(status) => {
-              setIsLoading(false);
-              setStatus(status);
-            }}
-            onPlaybackStatusUpdate={(status) => setStatus(status)}
+            player={player}
+            contentFit="contain"
+            nativeControls
           />
-          
-          {isLoading && (
-            <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color="#fff" />
-            </View>
-          )}
-        </TouchableOpacity>
+        </View>
+
+        {/* Custom Controls Row */}
+        <View style={styles.controlsRow}>
+          <TouchableOpacity style={styles.controlButton} onPress={() => handleSeek('backward')}>
+            <Ionicons name="play-back" size={28} color={colors.primary} />
+            <Text style={styles.controlLabel}>10s</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.playButton} onPress={handlePlayPause}>
+            <Ionicons name={isPlaying ? 'pause' : 'play'} size={40} color="#fff" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.controlButton} onPress={() => handleSeek('forward')}>
+            <Ionicons name="play-forward" size={28} color={colors.primary} />
+            <Text style={styles.controlLabel}>10s</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Media Info */}
         <View style={styles.infoSection}>
           <Text style={styles.mediaTitle}>{media.title}</Text>
-          {media.description && (
+          {media.description ? (
             <Text style={styles.mediaDescription}>{media.description}</Text>
-          )}
-          
+          ) : null}
+
           {/* Progress Bar */}
-          {status?.isLoaded && (
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
-                <View 
-                  style={[
-                    styles.progressFill, 
-                    { width: `${(status.positionMillis / (status.durationMillis || 1)) * 100}%` }
-                  ]} 
-                />
-              </View>
-              <View style={styles.timeContainer}>
-                <Text style={styles.timeText}>
-                  {formatTime(status.positionMillis)}
-                </Text>
-                <Text style={styles.timeText}>
-                  {formatTime(status.durationMillis || 0)}
-                </Text>
-              </View>
+          <View style={styles.progressContainer}>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${progress}%` }]} />
             </View>
-          )}
+            <View style={styles.timeContainer}>
+              <Text style={styles.timeText}>{formatTime(position)}</Text>
+              <Text style={styles.timeText}>{formatTime(duration)}</Text>
+            </View>
+          </View>
         </View>
 
         {/* Action Buttons */}
         <View style={styles.actionsSection}>
           <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="heart-outline" size={24} color="#1E88E5" />
+            <Ionicons name="heart-outline" size={24} color={colors.primary} />
             <Text style={styles.actionText}>Like</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="share-outline" size={24} color="#1E88E5" />
+
+          <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
+            <Ionicons name="share-outline" size={24} color={colors.primary} />
             <Text style={styles.actionText}>Share</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="download-outline" size={24} color="#1E88E5" />
+            <Ionicons name="download-outline" size={24} color={colors.primary} />
             <Text style={styles.actionText}>Download</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Related Videos */}
+        {/* Related Content */}
         <View style={styles.relatedSection}>
           <Text style={styles.sectionTitle}>Related Content</Text>
           {SAMPLE_MEDIA.filter(m => m.id !== media.id).slice(0, 3).map((item) => (
-            <TouchableOpacity 
-              key={item.id} 
+            <TouchableOpacity
+              key={item.id}
               style={styles.relatedItem}
               onPress={() => navigation.push('MediaPlayer', { mediaId: item.id })}
             >
               <View style={styles.relatedThumbnail}>
-                <Ionicons name="play-circle" size={32} color="#1E88E5" />
+                <Ionicons
+                  name={item.videoUrl ? 'play-circle' : 'musical-notes'}
+                  size={32}
+                  color={colors.primary}
+                />
               </View>
               <View style={styles.relatedInfo}>
                 <Text style={styles.relatedTitle} numberOfLines={2}>{item.title}</Text>
                 <Text style={styles.relatedDuration}>
-                  {item.duration ? `${Math.floor(item.duration / 60)} min` : 'Video'}
+                  {item.duration ? formatTime(item.duration) : 'Media'}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -197,9 +216,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 15,
+    padding: spacing.md,
     paddingTop: 50,
-    backgroundColor: '#1E88E5',
+    backgroundColor: colors.primary,
   },
   headerButton: {
     width: 40,
@@ -208,121 +227,137 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 18,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.textOnPrimary,
     textAlign: 'center',
-    marginHorizontal: 10,
+    marginHorizontal: spacing.sm,
   },
   content: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.background,
   },
   videoContainer: {
     width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH * 0.5625, // 16:9 aspect ratio
+    height: SCREEN_WIDTH * 0.5625, // 16:9
     backgroundColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   video: {
     width: '100%',
     height: '100%',
   },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+  controlsRow: {
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingVertical: spacing.lg,
+    gap: 32,
+    backgroundColor: colors.background,
+  },
+  controlButton: {
+    alignItems: 'center',
+  },
+  controlLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  playButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.md,
   },
   infoSection: {
-    padding: 20,
-    backgroundColor: '#1a1a1a',
+    padding: spacing.lg,
+    backgroundColor: colors.background,
   },
   mediaTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 8,
+    ...typography.h3,
+    color: colors.text,
+    marginBottom: spacing.sm,
   },
   mediaDescription: {
-    fontSize: 14,
-    color: '#999',
+    ...typography.caption,
+    color: colors.textSecondary,
     lineHeight: 20,
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   progressContainer: {
-    marginTop: 10,
+    marginTop: spacing.sm,
   },
   progressBar: {
     height: 4,
-    backgroundColor: '#333',
-    borderRadius: 2,
+    backgroundColor: colors.divider,
+    borderRadius: borderRadius.full,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#1E88E5',
+    backgroundColor: colors.primary,
   },
   timeContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   timeText: {
     fontSize: 12,
-    color: '#999',
+    color: colors.textSecondary,
   },
   actionsSection: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingVertical: 20,
+    paddingVertical: spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: '#333',
-    marginHorizontal: 20,
+    borderTopColor: colors.divider,
+    marginHorizontal: spacing.lg,
   },
   actionButton: {
     alignItems: 'center',
   },
   actionText: {
     fontSize: 12,
-    color: '#1E88E5',
-    marginTop: 4,
+    color: colors.primary,
+    marginTop: spacing.xs,
   },
   relatedSection: {
-    padding: 20,
-    paddingTop: 10,
+    padding: spacing.lg,
+    paddingTop: spacing.sm,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 16,
+    ...typography.h4,
+    color: colors.text,
+    marginBottom: spacing.md,
   },
   relatedItem: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   relatedThumbnail: {
     width: 120,
     height: 70,
-    backgroundColor: '#333',
-    borderRadius: 8,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
+    ...shadows.sm,
   },
   relatedInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: spacing.md,
     justifyContent: 'center',
   },
   relatedTitle: {
     fontSize: 14,
-    color: '#fff',
+    color: colors.text,
     fontWeight: '500',
   },
   relatedDuration: {
     fontSize: 12,
-    color: '#999',
-    marginTop: 4,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
   centerContent: {
     flex: 1,

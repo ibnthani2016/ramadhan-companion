@@ -7,6 +7,9 @@ export interface PrayerTimes {
   asr: Date;
   maghrib: Date;
   isha: Date;
+  date: Date;
+  location: Location;
+  calculationMethod: string;
 }
 
 export interface Location {
