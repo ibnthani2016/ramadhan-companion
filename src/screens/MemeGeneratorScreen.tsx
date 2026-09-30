@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getAllTemplates, getRandomSuggestions } from '../services/MemeGeneratorService';
+import { colors, spacing, typography, shadows, borderRadius } from '../theme';
 
 const MemeGeneratorScreen: React.FC = () => {
   const [topText, setTopText] = useState('');
@@ -48,17 +49,17 @@ const MemeGeneratorScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { backgroundColor: '#9C27B0', padding: 30, alignItems: 'center', borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
-  headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#fff', marginTop: 10 },
-  headerSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 5 },
-  section: { margin: 15 },
-  label: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 8 },
-  input: { backgroundColor: '#fff', borderRadius: 12, padding: 15, fontSize: 16, color: '#333' },
-  suggestionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', margin: 15, padding: 15 },
-  suggestionText: { marginLeft: 8, fontSize: 16, color: '#333' },
-  generateButton: { backgroundColor: '#9C27B0', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', margin: 15, padding: 18, borderRadius: 15 },
-  generateText: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginLeft: 10 },
+  container: { flex: 1, backgroundColor: colors.background },
+  header: { backgroundColor: colors.secondary, padding: 30, alignItems: 'center', borderBottomLeftRadius: borderRadius.xl, borderBottomRightRadius: borderRadius.xl, ...shadows.md },
+  headerTitle: { fontSize: 24, fontWeight: 'bold', color: colors.textOnPrimary, marginTop: spacing.sm },
+  headerSubtitle: { ...typography.caption, color: 'rgba(255,255,255,0.8)', marginTop: spacing.xs },
+  section: { margin: spacing.md },
+  label: { ...typography.body, fontWeight: '600', color: colors.text, marginBottom: spacing.sm },
+  input: { backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.md, fontSize: 16, color: colors.text },
+  suggestionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', margin: spacing.md, padding: spacing.md },
+  suggestionText: { marginLeft: spacing.sm, ...typography.body, color: colors.text },
+  generateButton: { backgroundColor: colors.secondary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', margin: spacing.md, padding: spacing.lg, borderRadius: borderRadius.xl },
+  generateText: { color: colors.textOnPrimary, fontSize: 18, fontWeight: 'bold', marginLeft: spacing.sm },
 });
 
 export default MemeGeneratorScreen;
